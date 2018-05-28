@@ -12,7 +12,7 @@ import zipfile
 
 def init():
 	#Init
-	load_db_data()
+	#load_db_data()
 	#last_date = get_last_date()
 	#last_date = "2018-05-23"
 	#fetch_gainers("https://www.bseindia.com/markets/equity/EQReports/MktWatchR.aspx?filter=gainer*all$all$&Page=1")
@@ -22,7 +22,86 @@ def init():
 	#fetch_volume_data(last_date)
 	#fetch_qty_traded(last_date)
 	#fetch_bulk_deals(last_date)
+	bulk_scan()
 	return
+
+def bulk_scan():
+	#Objective -> To scan any new scrip which does not exists on bulk_scan table
+	db_bulk = fetch_bulk()
+	db_all	= fetch_all_scrip()
+	for scrip_code in db_all:
+		if scrip_code not in db_bulk:
+			pr("I","Scrip "+scrip_code+" Not In Bulk Table. Inserting....",1) 
+			qry = "INSERT INTO bulk_scan VALUES ("+scrip_code+",'NO')"
+			execQuery(qry)
+	db_bulk = fetch_bulk()		
+	for scrip_code in db_bulk:
+		status = db_bulk[scrip_code]
+		if status == "NO":
+			pr("I","Data Does Not Exists For Scrip -> "+scrip_code+" Status -> "+status,1)
+			fetch_hist_bulk_deals(scrip_code)
+			s.exit()		
+
+	return
+
+def fetch_hist_bulk_deals(scrip_code):
+	pr("I","Fetching Data For  Scrip -> "+scrip_code,1)
+	
+	return
+
+def fetch_all_scrip():
+	pr("I","Loading DB Data For All Scrips",0)
+	db_obj  = sql_conn()
+	cursor  = db_obj.cursor()
+	db_all  = {}
+	qry     = "SELECT DISTINCT link,scrip_code FROM gainers";
+	try:
+		cursor.execute(qry)
+		results = cursor.fetchall()
+		for row in results:
+			tmp = row[0].split("/")
+			scrip_code = tmp[6]
+			scrip_name = row[1]
+			#print("Scrip Code -> "+scrip_code+" Scrip Name -> "+scrip_name)
+			db_all[str(scrip_code)] = scrip_name
+	except Exception as e:
+		print("-E- "+str(e))
+		print("-E- Error: unable to fecth data")
+		s.exit()
+		qry     = "SELECT DISTINCT link,scrip_code FROM losers";
+	try:
+		cursor.execute(qry)
+		results = cursor.fetchall()
+		for row in results:
+			tmp = row[0].split("/")
+			scrip_code = tmp[6]
+			scrip_name = row[1]
+			#print("Scrip Code -> "+scrip_code+" Scrip Name -> "+scrip_name)
+			db_all[str(scrip_code)] = scrip_name
+	except Exception as e:
+		print("-E- "+str(e))
+		print("-E- Error: unable to fecth data")
+		s.exit()
+	db_obj.close()
+	return db_all
+
+def fetch_bulk():
+	pr("I","Loading DB Data For Bulk Deals",0)
+	db_obj  = sql_conn()
+	cursor  = db_obj.cursor()
+	db_bulk = {}
+	qry    = "SELECT * FROM bulk_scan";
+	try:
+	    cursor.execute(qry)
+	    results = cursor.fetchall()
+	    for row in results:
+	        
+	        db_bulk[str(row[0])] = row[1]
+	except:
+	    print("-E- Error: unable to fecth data")
+	    s.exit()
+	db_obj.close()
+	return db_bulk
 
 def fetch_bulk_deals(last_date):
 	db_bulk 	= load_bulk_data(last_date)
