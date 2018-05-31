@@ -12,7 +12,7 @@ import zipfile
 
 def init():
 	#Init
-	#load_db_data()
+	load_db_data()
 	#last_date = get_last_date()
 	#last_date = "2018-05-23"
 	#fetch_gainers("https://www.bseindia.com/markets/equity/EQReports/MktWatchR.aspx?filter=gainer*all$all$&Page=1")
@@ -22,7 +22,14 @@ def init():
 	#fetch_volume_data(last_date)
 	#fetch_qty_traded(last_date)
 	#fetch_bulk_deals(last_date)
-	bulk_scan()
+	#bulk_scan()
+	map_bulk_scan()
+	return
+
+def  map_bulk_scan():
+	pr("I","Mapping Bulk Scan Data",1)
+	#Fetch Map
+	scrip_map = fetch_scrip_map()
 	return
 
 def bulk_scan():
@@ -40,13 +47,31 @@ def bulk_scan():
 		if status == "NO":
 			pr("I","Data Does Not Exists For Scrip -> "+scrip_code+" Status -> "+status,1)
 			fetch_hist_bulk_deals(scrip_code)
-			s.exit()		
-
+			#s.exit()		
 	return
 
 def fetch_hist_bulk_deals(scrip_code):
 	pr("I","Fetching Data For  Scrip -> "+scrip_code,1)
-	
+	url     	= "https://www.bseindia.com/stock-share-price/stockreach_bulkblock.aspx?scripcode="+scrip_code+"&expandable=7"
+	data_map 	= {}
+	mon_map     = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06','Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'}
+	rawdata 	= fetch_url(url)
+	for line in rawdata:
+		if "TTRow" in line:
+			tmp  = line.split(">")
+			dat  = (tmp[1][:-4]).split(" ")
+			clnt = tmp[3][:-4]
+			clnt = re.sub(r"[^a-zA-Z0-9]+", ' ', clnt)
+			typ  = tmp[5][:-4]
+			qty  = (tmp[7][:-4]).replace(",","")
+			prc  = (tmp[9][:-4]).replace(",","")
+			date = dat[2]+"-"+mon_map[dat[1]]+"-"+dat[0]
+			#print("date -> "+date+" client -> "+clnt+" type -> "+typ+" qty -> "+qty+" prc -> "+prc)
+			if int(dat[2]) >= 2017:
+				qry = "INSERT INTO bulk_deals VALUES('"+date+"',"+scrip_code+",'','"+clnt+"','"+typ+"',"+qty+","+prc+")"
+				execQuery(qry)	
+	qry = "UPDATE bulk_scan set status='YES' WHERE scrip_code = "+scrip_code
+	execQuery(qry)		
 	return
 
 def fetch_all_scrip():
