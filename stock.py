@@ -30,7 +30,69 @@ def  map_bulk_scan():
 	pr("I","Mapping Bulk Scan Data",1)
 	#Fetch Map
 	scrip_map = fetch_scrip_map()
+	scrip_bnk = []
+	db_obj    = sql_conn()
+	cursor    = db_obj.cursor()
+	qry       = "SELECT DISTINCT scrip_code FROM `bulk_deals` WHERE scrip_name =''"
+	try:
+		cursor.execute(qry)
+		results = cursor.fetchall()
+		for row in results:
+			scrip_bnk.append(str(row[0]))
+	except Exception as e:
+		print("-E- "+str(e))
+		print("-E- Error: unable to fecth data")
+		s.exit()
+
+	for scrip_code in scrip_bnk:
+		if scrip_code in scrip_map:
+			qry = "UPDATE bulk_deals set scrip_name='"+scrip_map[scrip_code]['N']+"' WHERE scrip_code='"+scrip_code+"'"
+			execQuery(qry)
 	return
+
+def fetch_scrip_map():
+	pr("I","Fetching Scrip Map",1)
+	scrip_map = {}
+	db_obj  = sql_conn()
+	cursor  = db_obj.cursor()
+	qry = "SELECT scrip_code,`group`,link FROM gainers"
+	try:
+		cursor.execute(qry)
+		results = cursor.fetchall()
+		for row in results:
+			tmp = row[2].split("/")
+			scrip_code  = tmp[6]
+			scrip_name  = row[0]
+			scrip_group = row[1]
+			#print("Scrip Code -> "+scrip_code+" Scrip Name -> "+scrip_name+" Scrip Group -> "+scrip_group)
+			scrip_map[str(scrip_code)] = {}
+			scrip_map[str(scrip_code)]['N'] = scrip_name
+			scrip_map[str(scrip_code)]['G'] = scrip_group
+	except Exception as e:
+		print("-E- "+str(e))
+		print("-E- Error: unable to fecth data")
+		s.exit()
+
+	qry = "SELECT scrip_code,`group`,link FROM losers"
+	try:
+		cursor.execute(qry)
+		results = cursor.fetchall()
+		for row in results:
+			tmp = row[2].split("/")
+			scrip_code  = tmp[6]
+			scrip_name  = row[0]
+			scrip_group = row[1]
+			#print("Scrip Code -> "+scrip_code+" Scrip Name -> "+scrip_name+" Scrip Group -> "+scrip_group)
+			scrip_map[str(scrip_code)] = {}
+			scrip_map[str(scrip_code)]['N'] = scrip_name
+			scrip_map[str(scrip_code)]['G'] = scrip_group
+	except Exception as e:
+		print("-E- "+str(e))
+		print("-E- Error: unable to fecth data")
+		s.exit()
+	
+	db_obj.close()	
+	return scrip_map
 
 def bulk_scan():
 	#Objective -> To scan any new scrip which does not exists on bulk_scan table
@@ -87,7 +149,7 @@ def fetch_all_scrip():
 			tmp = row[0].split("/")
 			scrip_code = tmp[6]
 			scrip_name = row[1]
-			#print("Scrip Code -> "+scrip_code+" Scrip Name -> "+scrip_name)
+			print("Scrip Code -> "+scrip_code+" Scrip Name -> "+scrip_name)
 			db_all[str(scrip_code)] = scrip_name
 	except Exception as e:
 		print("-E- "+str(e))
@@ -488,7 +550,7 @@ def rcnt(qry):
     return rows
 
 def execQuery(qry):
-    print("-S- Executing Query "+qry)
+    pr("S","Executing Query "+qry,1)
     db_obj  = sql_conn()
     cursor  = db_obj.cursor()
     try:
