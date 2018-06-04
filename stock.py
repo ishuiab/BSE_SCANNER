@@ -12,9 +12,10 @@ import zipfile
 
 def init():
 	#Init
-	load_db_data()
+	#load_db_data()
 	#last_date = get_last_date()
-	#last_date = "2018-05-23"
+	last_date = "2018-06-01"
+	get_daily_data(last_date)
 	#fetch_gainers("https://www.bseindia.com/markets/equity/EQReports/MktWatchR.aspx?filter=gainer*all$all$&Page=1")
 	#process_records("G",last_date)
 	#fetch_losers("https://www.bseindia.com/markets/equity/EQReports/MktWatchR.aspx?filter=loser*all$all$&Page=1")
@@ -23,7 +24,59 @@ def init():
 	#fetch_qty_traded(last_date)
 	#fetch_bulk_deals(last_date)
 	#bulk_scan()
-	map_bulk_scan()
+	#map_bulk_scan()
+	return
+
+def get_daily_data(last_date):
+	#https://www.bseindia.com/download/BhavCopy/Equity/EQ010618_CSV.ZIP
+	pr("I","Fetching Trade Data For Date "+last_date,0)
+	date_arr = last_date.split("-")
+	year 	 = date_arr[0][2:4]
+	month    = date_arr[1]
+	day      = date_arr[2]
+	dir_path = os.path.dirname(os.path.abspath(__file__))
+	file     = dir_path+"\BSE\Trade\\"+day+month+year+".zip"
+	url 	 = "https://www.bseindia.com/download/BhavCopy/Equity/EQ"+day+month+year+"_CSV.zip"
+	#urllib.request.urlretrieve (url, file)
+	if os.path.exists(file):
+		pr("I","File Successfully Downloaded",0)
+		archive = zipfile.ZipFile(file, 'r')
+		rawdata = str(archive.read("EQ"+day+month+year+".CSV")).replace("\\r\\n",":")
+		tmpdata = rawdata.split(":")
+		tmpdata.pop(0)
+		tmpdata.pop((len(tmpdata)-1))
+		ctr 	= 1
+		trd_map = {}
+		for line in tmpdata:
+			tmp   = line.split(",")
+			scode = tmp[0]
+			opn   = tmp[4]  
+			hgh   = tmp[5]
+			low   = tmp[6]
+			cls   = tmp[7]
+			trd   = tmp[10]
+			shr   = tmp[11]
+			trn   = tmp[12]
+			trd_map[scode] = {}
+			trd_map[scode]["OPN"] = str(opn) 
+			trd_map[scode]["HGH"] = str(hgh)
+			trd_map[scode]["LOW"] = str(low) 
+			trd_map[scode]["CLS"] = str(cls) 
+			trd_map[scode]["TRD"] = str(trd) 
+			trd_map[scode]["SHR"] = str(shr)
+			trd_map[scode]["TRN"] = str(trn) 
+			ctr = ctr + 1
+	else:	
+		pr("E","File Downloading Failed",0)
+		s.exit()
+
+	pr("I","Parsed "+str(ctr)+" Records",0)
+	db_map = load_trd_data(last_date)
+	for scode in trd_map:
+		if scode not in db_map:
+			pr("I",scode+" Data Not Available in DB For "+last_date,1)
+			qry = "INSERT INTO daily_data VALUES ('"+last_date+"',"+scode+","+trd_map[scode]["OPN"]+","+trd_map[scode]["HGH"]+","+trd_map[scode]["LOW"]+","+trd_map[scode]["CLS"]+","+trd_map[scode]["TRD"]+","+trd_map[scode]["SHR"]+","+trd_map[scode]["TRN"]+")"
+			execQuery(qry)
 	return
 
 def  map_bulk_scan():
@@ -149,7 +202,7 @@ def fetch_all_scrip():
 			tmp = row[0].split("/")
 			scrip_code = tmp[6]
 			scrip_name = row[1]
-			print("Scrip Code -> "+scrip_code+" Scrip Name -> "+scrip_name)
+			#print("Scrip Code -> "+scrip_code+" Scrip Name -> "+scrip_name)
 			db_all[str(scrip_code)] = scrip_name
 	except Exception as e:
 		print("-E- "+str(e))
@@ -290,6 +343,22 @@ def load_vol_data(last_date):
 	    for row in results:
 	        st = str(row[0])+"_"+str(row[1])
 	        db_map[st] = row[2]
+	except:
+	    print("-E- Error: unable to fecth data")
+	    s.exit()
+	return db_map
+
+def load_trd_data(last_date):
+	pr("I","Loading Trade Data For Date "+last_date,0)
+	db_map = {}
+	db_obj  = sql_conn()
+	cursor  = db_obj.cursor()
+	qry     = "SELECT * FROM daily_data WHERE date='"+last_date+"'"
+	try:
+	    cursor.execute(qry)
+	    results = cursor.fetchall()
+	    for row in results:
+	        db_map[str(row[1])] = 1
 	except:
 	    print("-E- Error: unable to fecth data")
 	    s.exit()
